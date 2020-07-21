@@ -1,31 +1,12 @@
-# install.packages("pacman")
-# install.packages("devtools")
-pacman::p_load("RPostgreSQL", "DBI")
-pacman::p_load("readxl", "writexl")
-pacman::p_load("dplyr", "magrittr", "hablar", "forcats")
-pacman::p_load("ggplot2", "survival", "survminer", "tableone")
-pacman::p_load("VIM", "naniar")
-pacman::p_load("MatchIt", "ipw", "survey")
-pacman::p_load("rms")
-pacman::p_load("forestplot")
-pacman::p_load("coxrobust")
-# pacman::p_load("reshape")
-pacman::p_load("maditr")
+library(RPostgreSQL)
+library(DBI)
+library(dplyr)
+library(ggplot2)
+library(survival)
+library(survminer)
+library(tableone)
+library(forestplot)
 
-# pacman::p_load("cmprsk")
-# pacman::p_load("wCorr")
-# pacman::p_load("weights")
-# devtools::install_github("heejoon523/r4hjanalysis")
-# library(r4hjanalysis)
-
-#### Functions 1 ----
-hj_DB_con <- function()
-{
-  return (dbConnect(dbDriver("PostgreSQL"), dbname=GLOBAL_DBNAME, port="5432", user="postgres", password=GLOBAL_DBPASSWORD, host="localhost"))
-}
-
-
-#### Functions 2 ----
 hj_DB_write <- function(TBNAME, DF, COPY_ROWNAMES=TRUE, LOWER_COLNAMES=TRUE)
 {
   con <- hj_DB_con()
@@ -75,7 +56,7 @@ hj_TableOne_addThousandsSeperator <-function(DF)
   return(df)
 }
 
-hj_TableOne_reformat <-function(DF, COLS=3, SVY=FALSE, VARS_NO_POINT=NULL)
+hj_TableOne_reformat <-function(DF, COLS=3, SVY=FALSE)
 {
   df<-hj_TableOne_addThousandsSeperator(DF)
   tdf <- as.data.frame(t(df), stringsAsFactors = FALSE)
@@ -101,13 +82,11 @@ hj_TableOne_reformat <-function(DF, COLS=3, SVY=FALSE, VARS_NO_POINT=NULL)
     else  {row_values[2:COLS]=gsub(")","%)",row_values[2:COLS])}
 
     # # plt, ALT에서 .0 없애기
-    if (!is.null(VARS_NO_POINT)){
-      if(row_name %in% VARS_NO_POINT)
-      {
-        row_values[2:COLS] <- gsub(".0 "," ",row_values[2:COLS])
-        row_values[2:COLS] <- gsub(".0)",")",row_values[2:COLS])
-        row_values[2:COLS] <- gsub(".0-","-",row_values[2:COLS])
-      }
+    if(row_name %in% c("plt_a (median [IQR])","alt_a (median [IQR])", "rituximab_cumdose (median [IQR])"))
+    {
+      row_values[2:COLS] <- gsub(".0 "," ",row_values[2:COLS])
+      row_values[2:COLS] <- gsub(".0)",")",row_values[2:COLS])
+      row_values[2:COLS] <- gsub(".0-","-",row_values[2:COLS])
     }
     return(row_values)
   })
@@ -136,8 +115,24 @@ hj_reformatDigit_p <- function(P_VALUES, pDigits_from=3, pDigits_to=2)
   # 0.01 ~ 0.001은 3자리로
   # 0.001보다 작으면 <0.001로
 
+  # hj_reformatDigit_p(c("<0.001","","0.135","0.125","0.123","0.012","0.001","0.050","0.049","0.046","0.045","0.044"))
+  # hj_reformatDigit_p(c("0.051","0.050","0.049","0.046","0.045","0.044", "0.012", "0.011", "0.010", "0.009","0.008", "0.001"))
+  # p_values <- as.character(P_VALUES)
+  # print("P_VALUES")
+  # print(P_VALUES)
   p_values <- as.character(P_VALUES)
 
+  # p <- lapply(p_values, function(x){
+  #    if(x=="<0.001" | x=="" | x=="NaN") return (x)
+  #   x<-as.numeric(x)
+  #    print(paste("x=",x))
+  #   if (x>=0.050) x<-round(x,digits=2)
+  #   else if (x<=0.045 & x>=0.010) x<-round(x,digits=2)
+  #   x<-as.character(x)
+  #   return(x)
+  # })
+
+  # ?format
   pDigits_adj<-10^(3-pDigits_from)
   p <- lapply(p_values, function(x){
     if(grepl("<",x) | x=="" | x=="NaN" | x=="NA") return (x)
@@ -155,17 +150,20 @@ hj_reformatDigit_p <- function(P_VALUES, pDigits_from=3, pDigits_to=2)
   res<-unlist(p)
   return(res)
 }
+# forest_result_uni <- hj_forest_list(forest_data, forest_vars, "hcc", "hbeag_a", cox_covs, MUST_COV="hbeag_a", P_THRESHOLD=0.05, multiCox=FALSE)
 
 
-hj_TableOne_DBwrite <- function(DB_TABLE_NAME, DATA, STRATA, VARS, VARS_NONNORMAL=NULL, OVERALL=FALSE, SMD=FALSE, SVY=FALSE, pDigits=3, VARS_NO_POINT=NULL)
+hj_TableOne_DBwrite <- function(DB_TABLE_NAME, DATA, STRATA, VARS, VARS_NONNORMAL=NULL, OVERALL=FALSE, SMD=FALSE, SVY=FALSE, pDigits=3, showAllLevels = FALSE)
 {
   if(SVY) tb1 <- svyCreateTableOne(vars=VARS, data=DATA, strata = STRATA, addOverall=OVERALL)
   else tb1 <- CreateTableOne(vars=VARS, strata = STRATA, data=DATA, addOverall=OVERALL)
-  tb1_print <- as.data.frame(print(tb1, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, nonnormal = VARS_NONNORMAL, smd=SMD, pDigits=pDigits, contDigits=1))
-  tb1_print_reformat <- hj_TableOne_reformat(tb1_print, SVY=SVY, VARS_NO_POINT = VARS_NO_POINT)
+  tb1_print <- as.data.frame(print(tb1, quote = FALSE, noSpaces = TRUE, printToggle = FALSE, nonnormal = VARS_NONNORMAL, smd=SMD, pDigits=pDigits, contDigits=1, showAllLevels = showAllLevels))
+  tb1_print_reformat <- hj_TableOne_reformat(tb1_print, SVY=SVY)
   hj_DB_write(DB_TABLE_NAME, tb1_print_reformat, COPY_ROWNAMES=FALSE)
   return (tb1_print_reformat)
 }
+
+# hj_TableOne_DBwrite("tb_iptw_tb1", IPTWdataLC, "HBeAg", tb1_vars, tb1_vars_nonnormal, OVERALL = TRUE, SMD=TRUE, SVY=TRUE)
 
 hj_cox_multi_covariates <- function(df_data, time, event, covariates, p_threshold, WEIGHT=NULL, MUST_COV=NULL)
 {
@@ -192,6 +190,7 @@ hj_cox_multi_covariates <- function(df_data, time, event, covariates, p_threshol
   res_covariates %>% paste0(collapse = "+") -> res
   # paste0(collapse = "+") %>% return
   # paste0(collapse = "+") -> res
+
 
   print(paste("covariates:",res))
   return (res)
@@ -328,14 +327,11 @@ hj_PSM_match.data <- function(MATCHIT_OBJ){
 # ?survfit.object
 
 # forest_result <- hj_forest_list(forest_data, forest_vars, "hcc", "hbeag_a", cox_vars)
-hj_figure_CumInc <- function(DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTITLE=NULL, BREAK_TIME_BY=24, FONT_SIZE=NULL, PALETTE=NULL, STR_TIME="months", MONTH_TO_YEAR=FALSE, CENSOR=FALSE, RISKTABLE=FALSE, INTEREST_YEARS=NULL, XLIM=NULL, YLIM=NULL, LEGEND="none", LEGEND_LABS=NULL) {
+hj_figure_CumInc <- function(DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTITLE=NULL, BREAK_TIME_BY=24, FONT_SIZE=NULL, PALETTE="Lancet", MONTH_TO_YEAR=FALSE) {
   df <- DF_DATA
   df_name <- deparse(substitute(DF_DATA))
   time <- df[MONTH_TIME]
-  if(MONTH_TO_YEAR) {
-    df[MONTH_TIME]<-time/12
-    STR_TIME="year"
-  }
+  if(MONTH_TO_YEAR) df[MONTH_TIME]<-time/12
   surv_formula_txt <- paste0("Surv(",MONTH_TIME,",",EVENT,")~",STRATA)
   surv_formula <- as.formula(surv_formula_txt)
   print(surv_formula_txt)
@@ -343,44 +339,80 @@ hj_figure_CumInc <- function(DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SU
   if(!is.null(WEIGHT)) fit <- surv_fit(as.formula(surv_formula_txt), data=df, weights=eval(parse(text=paste0(df_name,"$",WEIGHT)))) # survfit으로 하면 symbol 에러
 
   LINETYPE <- c(1,5)
-  if(is.null(PALETTE)) PALETTE=c("red", "black")
-
+  PALETTE <- c("red", "black")
 
   res<-NULL
 
-  # DB_risktable: number at risk
+
+  # if(is.null(FONT_SIZE)){
+  #   res$plot<-ggsurvplot(fit, size=1, break.time.by = BREAK_TIME_BY, fun="event", palette = PALETTE, linetype = LINETYPE, censor.size=1, censor.shape="|",
+  #                        title="Cumulative incidence of HCC development", subtitle=SUBTITLE, xlab="Time (months)")
+  # }
+  # else {
+  #   res$plot<-ggsurvplot(fit, size=FONT_SIZE/10, break.time.by = BREAK_TIME_BY, fun="event", palette = PALETTE, linetype = LINETYPE, censor.size=FONT_SIZE/10, censor.shape="|",
+  #                        # title="Cumulative incidence of HCC development", subtitle=SUBTITLE,
+  #                        xlab="", ylab="",
+  #                        # xlab="Time (months)", ylab="Cumulative incidence (%)",
+  #                        surv.scale="percent",
+  #
+  #                        font.legend = c(FONT_SIZE, "plain", "black"),
+  #                        legend="none",
+  #                        ggtheme=theme_survminer(
+  #                          font.main = c(FONT_SIZE, "bold", "black"),
+  #                          font.submain = c(FONT_SIZE, "plain", "black"),
+  #                          font.caption = c(FONT_SIZE, "plain", "black"),
+  #                          font.x = c(FONT_SIZE, "bold", "black"),
+  #                          font.y = c(FONT_SIZE, "bold", "black"),
+  #                          font.tickslab = c(FONT_SIZE, "plain", "black")
+  #                        ))
+  # }
   res$risktable <- ggrisktable(fit, data=df, break.time.by = BREAK_TIME_BY)
   res$DB_risktable <- res$risktable$data %>% select(strata, time, n.risk)
   res$DB_risktable <- as.data.frame(cast(res$DB_risktable, strata~time, value="n.risk"))
+  res$plot_full <- ggsurvplot(fit, size=1, title="Cumulative incidence of HCC development", subtitle=SUBTITLE,
+                              break.time.by = BREAK_TIME_BY, risk.table = TRUE, fun="event", palette = PALETTE, pval.method=TRUE, pval = TRUE,
+                              censor.size=2, censor.shape="|", xlab="Time (months)")
+  # res$risktable_all <- ggrisktable(fit, data=df, break.time.by = 1, risk.table.type="nrisk_cumevents")
 
-  # DB_risktable2: 관심년도 number at risk와 cumulative incidence (%)
-  if(is.null(INTEREST_YEARS)){
-    times <- colnames(res$DB_risktable)
-    times <- times[-1]
-    INTEREST_YEARS=as.numeric(times)
-  }
+  INTEREST_YEARS <- c(2,5,10)
+  # risktable_interest <- res$risktable_all$data %>%
+  #   subset(time %in% INTEREST_YEARS) %>%
+  #   mutate(cumInc = cum.n.event / n.risk,
+  #          cumInc_percent = round(cumInc*100, digits=1))
+  #
+  #
+  # print(risktable_interest)
+  #
+  # res$smy <- summary(fit, times=INTEREST_YEARS)
+
   smry <- summary(fit, times=INTEREST_YEARS)
-  df_smry <- data.frame(strata=smry$strata, time=smry$time, nrisk=smry$n.risk, cuminc_pct=round((1-smry$surv)*100,digits=1))
-  df_smry1 <- dcast(df_smry, strata~time, value.var="nrisk")
-  df_smry2 <- dcast(df_smry, strata~time, value.var="cuminc_pct")
-  df_smry3 <- rbind(df_smry1,df_smry2)
+  # df_smry <- data.frame(strata=tmp2$strata, time=tmp2$time, surv=tmp2$surv, cuminc_pct=(1-tmp2$surv)*100, cumhaz=tmp2$cumhaz*100)
+  df_smry <- data.frame(strata_cumIncPct=smry$strata, time=smry$time+0.01, cuminc_pct=round((1-smry$surv)*100,digits=1))
+  res$DB_cumIncPctTable <- as.data.frame(cast(df_smry, strata_cumIncPct~time, value="cuminc_pct"))
 
-  print(df_smry3)
-  res$DB_risktable2 <- df_smry3
+  res$DB_risktable2 <- cbind(res$DB_risktable, res$DB_cumIncPctTable)
+
+  res$plot<-ggsurvplot(fit, legend.labs=c("HBeAg-positive","HBeAg-negative"), fun = "event",
+                       break.time.by = BREAK_TIME_BY,
+                       palette = c("red","black"), linetype = c(1,5), censor=FALSE,
+                       xlab="Time (years)", ylab="Cumulative incidence",
+                       risk.table = T, risk.table.y.text.col=FALSE, tables.theme = theme_cleantable(),
+                       tables.height = 0.2,  xlim = c(0,12)
+  )
 
   if(is.null(FONT_SIZE)){
     res$plot<-ggsurvplot(fit, size=1, break.time.by = BREAK_TIME_BY, fun="event", palette = PALETTE, linetype = LINETYPE, censor.size=1, censor.shape="|",
-                         title="Cumulative incidence of ...", subtitle=SUBTITLE, xlab=paste("Time",STR_TIME))
+                         title="Cumulative incidence of HCC development", subtitle=SUBTITLE, xlab="Time (months)")
   }
   else {
-    res$plot<-ggsurvplot(fit, size=FONT_SIZE/15, break.time.by = BREAK_TIME_BY, fun="event", palette = PALETTE, linetype = LINETYPE, censor=CENSOR,
+    res$plot<-ggsurvplot(fit, size=FONT_SIZE/15, break.time.by = BREAK_TIME_BY, fun="event", palette = PALETTE, linetype = LINETYPE, censor=FALSE,
                          # xlab="", ylab="",
-                         xlab=paste("Time",STR_TIME), ylab="Cumulative incidence (%)",
-                         legend.labs=LEGEND_LABS,    #c("HBeAg-positive","HBeAg-negative"),
+                         xlab="Time (years)", ylab="Cumulative incidence (%)",
+                         legend.labs=c("HBeAg-positive","HBeAg-negative"),
                          surv.scale="percent",
 
                          font.legend = c(FONT_SIZE, "plain", "black"),
-                         legend=LEGEND,
+                         legend="none",
                          ggtheme=theme_survminer(
                            font.main = c(FONT_SIZE+1, "bold", "black"),
                            font.submain = c(FONT_SIZE+1, "plain", "black"),
@@ -389,37 +421,32 @@ hj_figure_CumInc <- function(DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SU
                            font.y = c(FONT_SIZE+1, "bold", "black"),
                            font.tickslab = c(FONT_SIZE, "plain", "black")
                          ),
-                         risk.table = RISKTABLE, risk.table.y.text.col=FALSE, tables.theme = theme_cleantable()
-                         ,tables.height = 0.25, fontsize=2.5
-                         ,  xlim = XLIM, ylim=YLIM
-                         # ,xlim = c(0,12), ylim=c(0,0.35)
+                         risk.table = T, risk.table.y.text.col=FALSE, tables.theme = theme_cleantable()
+                         ,tables.height = 0.25,  xlim = c(0,12)
+                         ,fontsize=2.5
     )
   }
   return(res)
 }
 
-
-hj_figure_CumInc_DBwrite <- function(DB_TABLE_NAME, DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTITLE=NULL, BREAK_TIME_BY=24, FONT_SIZE=NULL, PALETTE=NULL, STR_TIME="months", MONTH_TO_YEAR=FALSE, CENSOR=FALSE, RISKTABLE=FALSE, XLIM=NULL, YLIM=NULL, LEGEND="none", LEGEND_LABS=NULL) {
-  res <- hj_figure_CumInc(DF_DATA, MONTH_TIME, EVENT, STRATA, SUBTITLE=SUBTITLE, WEIGHT=WEIGHT, BREAK_TIME_BY=BREAK_TIME_BY, FONT_SIZE=FONT_SIZE, PALETTE=PALETTE, STR_TIME=STR_TIME, MONTH_TO_YEAR=MONTH_TO_YEAR, CENSOR=CENSOR, RISKTABLE=RISKTABLE, XLIM=XLIM, YLIM=YLIM, LEGEND=LEGEND, LEGEND_LABS=LEGEND_LABS)
-  # hj_DB_write(DB_TABLE_NAME, res$DB_risktable, COPY_ROWNAMES = FALSE) 이거 아님
+hj_figure_CumInc_DBwrite <- function(DB_TABLE_NAME, DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTITLE=NULL, BREAK_TIME_BY=24, FONT_SIZE=NULL, PALETTE="XXX", MONTH_TO_YEAR=FALSE) {
+  res <- hj_figure_CumInc(DF_DATA, MONTH_TIME, EVENT, STRATA, SUBTITLE=SUBTITLE, WEIGHT=WEIGHT, BREAK_TIME_BY=BREAK_TIME_BY, FONT_SIZE=FONT_SIZE, PALETTE=PALETTE, MONTH_TO_YEAR=MONTH_TO_YEAR)
+  # hj_DB_write(DB_TABLE_NAME, res$DB_risktable, COPY_ROWNAMES = FALSE)
   hj_DB_write(DB_TABLE_NAME, res$DB_risktable2, COPY_ROWNAMES = FALSE)
   if(is.null(FONT_SIZE)){
-    pic_size_x=15
-    pic_size_y=10
+    pic_size_x=8
+    pic_size_y=6
   }
   else {
     pic_size_x=FONT_SIZE*1.5
     pic_size_y=FONT_SIZE
   }
-  # pic_size_x=5.8
-  # pic_size_y=8.5
-  # pic_size_y=5.5
+  pic_size_x=9
+  pic_size_y=8.5
 
   ggsave(plot=print(res$plot), file=paste0(DB_TABLE_NAME,".tiff"), width=pic_size_x, height=pic_size_y, unit="cm", dpi=300)
   return(res)
 }
-
-
 
 hj_logrank <- function(DF_DATA, TIME, EVENT, STRATA, STRATIFIED_VAR=NULL, WEIGHT=NULL, ROUND_DIGIT=NULL) {
   print(deparse(substitute(DF_DATA)))
@@ -451,7 +478,7 @@ hj_logrank <- function(DF_DATA, TIME, EVENT, STRATA, STRATIFIED_VAR=NULL, WEIGHT
 hj_forest_list <- function(DF, SUBGROUP_VARs, EVENT_VAR, INTEREST_VAR, COX_VARS, MUST_COV=NULL, P_THRESHOLD=0.05, multiCox=FALSE) {
   res1 <- c(TRUE, NA,  NA, "Number of patients", NA, NA, NA, NA, NA)
   res2 <- c(TRUE, "Subgroup", "HBeAg-negative", "HBeAg-positive", "HR (95% CI)", "P value", NA, NA, NA)
-  if (multiCox==TRUE) res2 <- c(TRUE, "Subgroup", "HBeAg-negative", "HBeAg-positive", "Adjusted HR (95% CI)*", "P value*", NA, NA, NA)
+  if (multiCox==TRUE) res2 <- c(TRUE, "Subgroup", "HBeAg-negative", "HBeAg-positive", "adjusted HR (95% CI)", "P value", NA, NA, NA)
   # res2 <- c(TRUE, "Subgroup", "HBeAg-positive1", "HBeAg-negative", "aHR (95% CI)", "P value", NA, NA, NA)
   forest_elements <- lapply(SUBGROUP_VARs, function(x) {hj_forest_element(DF, x[2], x[1], EVENT_VAR, INTEREST_VAR, COX_VARS, MUST_COV=MUST_COV, P_THRESHOLD=P_THRESHOLD, multiCox=multiCox)})
   res99<-do.call(rbind, lapply(forest_elements, data.frame, stringsAsFactors=FALSE))
