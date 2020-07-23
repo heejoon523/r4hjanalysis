@@ -89,7 +89,7 @@ hj_TableOne_reformat <-function(DF, COLS=3, SVY=FALSE, VARS_NO_POINT=NULL)
     else if (grepl("\\(mean \\(SD\\)\\)",row_name)) {row_values[2:COLS]=gsub("\\(|\\)","",gsub(" ","±", row_values[2:COLS]))}
     else if (grepl("\\median \\[IQR\\]\\)",row_name)) {row_values[2:COLS]=gsub("\\[","(",gsub("\\]",")", row_values[2:COLS]))}
     # else if (grepl("\\(\\%\\)",row_name)) {row_values[2:COLS]=gsub(")","%)",row_values[2:COLS])}
-    else if (grepl("\\(\\%\\)", row_name) | TRUE) { # 하위 항목이 있는 것들도 frequency, %로 처리 -> 아닐 경우 다시 고민 필요
+    else if (grepl("\\(\\%\\)",row_name)) {
       if (SVY) {
         row_values[2:COLS]=gsub(")","%",row_values[2:COLS])
         row_values[2:COLS]=gsub("^.*[(]","",row_values[2:COLS])
@@ -294,6 +294,9 @@ hj_cox <- function(df_data, t_time, t_event, COV, multiCox=FALSE, dgt=2, p_thres
   return(res)
 }
 
+# hj_cox_DBwrite("tbcox1", myfacdataLC,"month_hcc_os1", "hcc", cox_cov, P_THRESHOLD=0.05)
+# format(1.234560, nsmall=2)
+
 hj_cox_DBwrite <- function(DB_TABLE_NAME, DATA, TIME, EVENT, COX_COV, P_THRESHOLD=0.2, WEIGHT=NULL, ROBUST_VAR=NULL, MUST_COV=NULL){
   res_cox_uni <- hj_cox(DATA, TIME, EVENT, COX_COV, WEIGHT=WEIGHT, ROBUST_VAR=ROBUST_VAR)
   print(res_cox_uni)
@@ -320,8 +323,10 @@ hj_PSM_match.data <- function(MATCHIT_OBJ){
   res$PSM_ID <- floor(res$PSM_ID)
   return(res)
 }
+# ?survfit.object
 
-hj_figure_KM <- function(DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTITLE=NULL, BREAK_TIME_BY=24, FONT_SIZE=NULL, PALETTE=NULL, STR_TIME="months", MONTH_TO_YEAR=FALSE, CENSOR=FALSE, RISKTABLE=FALSE, INTEREST_YEARS=NULL, XLIM=NULL, YLIM=NULL, LEGEND="none", LEGEND_LABS=NULL, FUN=NULL) {
+# forest_result <- hj_forest_list(forest_data, forest_vars, "hcc", "hbeag_a", cox_vars)
+hj_figure_CumInc <- function(DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTITLE=NULL, BREAK_TIME_BY=24, FONT_SIZE=NULL, PALETTE=NULL, STR_TIME="months", MONTH_TO_YEAR=FALSE, CENSOR=FALSE, RISKTABLE=FALSE, INTEREST_YEARS=NULL, XLIM=NULL, YLIM=NULL, LEGEND="none", LEGEND_LABS=NULL) {
   df <- DF_DATA
   df_name <- deparse(substitute(DF_DATA))
   time <- df[MONTH_TIME]
@@ -366,11 +371,9 @@ hj_figure_KM <- function(DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTIT
                          title="Cumulative incidence of ...", subtitle=SUBTITLE, xlab=paste("Time",STR_TIME))
   }
   else {
-    res$plot<-ggsurvplot(fit, size=FONT_SIZE/15, break.time.by = BREAK_TIME_BY, palette = PALETTE, linetype = LINETYPE, censor=CENSOR,
-                         fun=FUN,
+    res$plot<-ggsurvplot(fit, size=FONT_SIZE/15, break.time.by = BREAK_TIME_BY, fun="event", palette = PALETTE, linetype = LINETYPE, censor=CENSOR,
                          # xlab="", ylab="",
-                         xlab=paste("Time",STR_TIME),
-                         # ylab="Cumulative incidence (%)",
+                         xlab=paste("Time",STR_TIME), ylab="Cumulative incidence (%)",
                          legend.labs=LEGEND_LABS,    #c("HBeAg-positive","HBeAg-negative"),
                          surv.scale="percent",
 
@@ -394,8 +397,8 @@ hj_figure_KM <- function(DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTIT
 }
 
 
-hj_figure_KM_DBwrite <- function(DB_TABLE_NAME, DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTITLE=NULL, BREAK_TIME_BY=24, FONT_SIZE=NULL, PALETTE=NULL, STR_TIME="months", MONTH_TO_YEAR=FALSE, CENSOR=FALSE, RISKTABLE=FALSE, XLIM=NULL, YLIM=NULL, LEGEND="none", LEGEND_LABS=NULL, FUN=NULL) {
-  res <- hj_figure_KM(DF_DATA, MONTH_TIME, EVENT, STRATA, SUBTITLE=SUBTITLE, WEIGHT=WEIGHT, BREAK_TIME_BY=BREAK_TIME_BY, FONT_SIZE=FONT_SIZE, PALETTE=PALETTE, STR_TIME=STR_TIME, MONTH_TO_YEAR=MONTH_TO_YEAR, CENSOR=CENSOR, RISKTABLE=RISKTABLE, XLIM=XLIM, YLIM=YLIM, LEGEND=LEGEND, LEGEND_LABS=LEGEND_LABS, FUN=FUN)
+hj_figure_CumInc_DBwrite <- function(DB_TABLE_NAME, DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTITLE=NULL, BREAK_TIME_BY=24, FONT_SIZE=NULL, PALETTE=NULL, STR_TIME="months", MONTH_TO_YEAR=FALSE, CENSOR=FALSE, RISKTABLE=FALSE, XLIM=NULL, YLIM=NULL, LEGEND="none", LEGEND_LABS=NULL) {
+  res <- hj_figure_CumInc(DF_DATA, MONTH_TIME, EVENT, STRATA, SUBTITLE=SUBTITLE, WEIGHT=WEIGHT, BREAK_TIME_BY=BREAK_TIME_BY, FONT_SIZE=FONT_SIZE, PALETTE=PALETTE, STR_TIME=STR_TIME, MONTH_TO_YEAR=MONTH_TO_YEAR, CENSOR=CENSOR, RISKTABLE=RISKTABLE, XLIM=XLIM, YLIM=YLIM, LEGEND=LEGEND, LEGEND_LABS=LEGEND_LABS)
   # hj_DB_write(DB_TABLE_NAME, res$DB_risktable, COPY_ROWNAMES = FALSE) 이거 아님
   hj_DB_write(DB_TABLE_NAME, res$DB_risktable2, COPY_ROWNAMES = FALSE)
   if(is.null(FONT_SIZE)){

@@ -17,11 +17,7 @@ pacman::p_load("maditr")
 # pacman::p_load("weights")
 # devtools::install_github("heejoon523/r4hjanalysis")
 # library(r4hjanalysis)
-#### Functions 1 ----
-hj_DB_con <- function()
-{
-  return (dbConnect(dbDriver("PostgreSQL"), dbname=GLOBAL_DBNAME, port="5432", user="postgres", password=GLOBAL_DBPW, host="localhost"))
-}
+
 
 #### Functions 2 ----
 hj_DB_write <- function(TBNAME, DF, COPY_ROWNAMES=TRUE, LOWER_COLNAMES=TRUE)
@@ -32,33 +28,33 @@ hj_DB_write <- function(TBNAME, DF, COPY_ROWNAMES=TRUE, LOWER_COLNAMES=TRUE)
   # df<-hj_tableone_reformat(DF)
   if(LOWER_COLNAMES) colnames(DF)<-tolower(colnames(DF))
   if(COPY_ROWNAMES) {
-    DF <- cbind(rownames(DF), DF)
+    DF <- cbind(rownames(DF), DF) 
     names(DF)[1] <- "rownames"
   }
   print (TBNAME)
   dbWriteTable(con, TBNAME, DF, row.names=FALSE)
   dbDisconnect(con)
-  return (DF)
+  return (DF) 
 }
 
 hj_TableOne_addThousandsSeperator <-function(DF)
 {
-  df_values <- data.frame(lapply(DF, function(x) { # DFì˜ col 1ì—´ì”© ë„˜ê¹€
-    DF_col<-t(as.data.frame(x)) # DFì˜ col 1ê°œ ë‚´ì˜ row ë³„ë¡œ 1í–‰ì”© ë„˜ê¹€
-    res<-t(data.frame(lapply(DF_col,function(x){ # comma ë¶™ì´ê³  í–‰ì—´ ë³€í™˜
-      res <- x %>%
-        gsub("\\(","( ", .) %>% # ê´„í˜¸ ì „í›„ì— space ì‚½ì…í•´ì„œ split ê°€ëŠ¥í•˜ê²Œ í•¨
-        gsub(")"," )",.) %>%
-        # gsub("\\[","( ", .) %>%
-        # gsub("\\]"," )",.) %>%
+  df_values <- data.frame(lapply(DF, function(x) { # DFÀÇ col 1¿­¾¿ ³Ñ±è
+    DF_col<-t(as.data.frame(x)) # DFÀÇ col 1°³ ³»ÀÇ row º°·Î 1Çà¾¿ ³Ñ±è
+    res<-t(data.frame(lapply(DF_col,function(x){ # comma ºÙÀÌ°í Çà¿­ º¯È¯
+      res <- x %>% 
+        gsub("\\(","( ", .) %>% # °ıÈ£ ÀüÈÄ¿¡ space »ğÀÔÇØ¼­ split °¡´ÉÇÏ°Ô ÇÔ
+        gsub(")"," )",.) %>% 
+        # gsub("\\[","( ", .) %>% 
+        # gsub("\\]"," )",.) %>% 
         gsub("\\[","[ ", .) %>%
         gsub("]"," ]",.) %>%
-        gsub(","," - ",.) %>%
-        strsplit(., split="\\s") %>%
+        gsub(","," - ",.) %>% 
+        strsplit(., split="\\s") %>% 
         unlist %>%
         # gsub(".00$", "", .) %>%
-        # ifelse(grepl("\\<",.),.,gsub(".00$", "", .)) %>%
-        ifelse(grepl("\\.",.),.,gsub("(?!^)(?=(?:\\d{3})+$)", ",", ., perl=T)) %>%
+        # ifelse(grepl("\\<",.),.,gsub(".00$", "", .)) %>% 
+        ifelse(grepl("\\.",.),.,gsub("(?!^)(?=(?:\\d{3})+$)", ",", ., perl=T)) %>% 
         paste(., collapse=" ") %>%
         gsub("\\s","",.) %>%
         gsub("\\("," (",.) %>%
@@ -67,9 +63,9 @@ hj_TableOne_addThousandsSeperator <-function(DF)
     })))
     return (res)
   }))
-  df <- cbind(rownames=row.names(DF), df_values) # row í–‰ ì´ë¦„ì„ ë³„ë„ì˜ ë³€ìˆ˜ë¡œ ì €ì¥
-  colnames(df)<- tolower(colnames(df)) # col ì—´ ì´ë¦„ì„ ì†Œë¬¸ìë¡œ (pgsqlê³¼ excel ì—°ê²°ìš©)
-  rownames(df)<- NULL # row í–‰ ì´ë¦„ì€ ì—†ì•°
+  df <- cbind(rownames=row.names(DF), df_values) # row Çà ÀÌ¸§À» º°µµÀÇ º¯¼ö·Î ÀúÀå
+  colnames(df)<- tolower(colnames(df)) # col ¿­ ÀÌ¸§À» ¼Ò¹®ÀÚ·Î (pgsql°ú excel ¿¬°á¿ë)
+  rownames(df)<- NULL # row Çà ÀÌ¸§Àº ¾ø¾Ú
   return(df)
 }
 
@@ -84,12 +80,12 @@ hj_TableOne_reformat <-function(DF, COLS=3, SVY=FALSE, VARS_NO_POINT=NULL)
     row_values <-x
     row_name<-row_values[1]
     # row_values[2:COLS] <- gsub("\\(|\\)","",row_values[2:COLS])
-
+    
     if (grepl("^n$",row_name)) {row_values[2:COLS]=paste0("(n=",row_values[2:COLS],")")}
-    else if (grepl("\\(mean \\(SD\\)\\)",row_name)) {row_values[2:COLS]=gsub("\\(|\\)","",gsub(" ","Â±", row_values[2:COLS]))}
+    else if (grepl("\\(mean \\(SD\\)\\)",row_name)) {row_values[2:COLS]=gsub("\\(|\\)","",gsub(" ","¡¾", row_values[2:COLS]))}
     else if (grepl("\\median \\[IQR\\]\\)",row_name)) {row_values[2:COLS]=gsub("\\[","(",gsub("\\]",")", row_values[2:COLS]))}
     # else if (grepl("\\(\\%\\)",row_name)) {row_values[2:COLS]=gsub(")","%)",row_values[2:COLS])}
-    else if (grepl("\\(\\%\\)", row_name) | TRUE) { # í•˜ìœ„ í•­ëª©ì´ ìˆëŠ” ê²ƒë“¤ë„ frequency, %ë¡œ ì²˜ë¦¬ -> ì•„ë‹ ê²½ìš° ë‹¤ì‹œ ê³ ë¯¼ í•„ìš”
+    else if (grepl("\\(\\%\\)",row_name)) {
       if (SVY) {
         row_values[2:COLS]=gsub(")","%",row_values[2:COLS])
         row_values[2:COLS]=gsub("^.*[(]","",row_values[2:COLS])
@@ -97,8 +93,8 @@ hj_TableOne_reformat <-function(DF, COLS=3, SVY=FALSE, VARS_NO_POINT=NULL)
       else {row_values[2:COLS]=gsub(")","%)",row_values[2:COLS])}
     }
     else  {row_values[2:COLS]=gsub(")","%)",row_values[2:COLS])}
-
-    # # plt, ALTì—ì„œ .0 ì—†ì• ê¸°
+    
+    # # plt, ALT¿¡¼­ .0 ¾ø¾Ö±â
     if (!is.null(VARS_NO_POINT)){
       if(row_name %in% VARS_NO_POINT)
       {
@@ -112,30 +108,30 @@ hj_TableOne_reformat <-function(DF, COLS=3, SVY=FALSE, VARS_NO_POINT=NULL)
   res<-data.frame(t(data.frame(tdf_result)))
   colnames(res)<-colnames(df)
   rownames(res)<-NULL
-
-  # pë¥¼ ì†Œìˆ˜ì  3ìë¦¬ -> 2ìë¦¬ ê¸°ì¤€ìœ¼ë¡œ ë³€ê²½ ** inputì´ 3ìë¦¬ê°€ ì•„ë‹ ê²½ìš° í•¨ìˆ˜ ë³€ê²½ í•„ìš”
+  
+  # p¸¦ ¼Ò¼öÁ¡ 3ÀÚ¸® -> 2ÀÚ¸® ±âÁØÀ¸·Î º¯°æ ** inputÀÌ 3ÀÚ¸®°¡ ¾Æ´Ò °æ¿ì ÇÔ¼ö º¯°æ ÇÊ¿ä
   res$p2<-res$p
-  res$p<- hj_reformatDigit_p(res$p)
+  res$p<- hj_reformatDigit_p(res$p) 
   return(res)
 }
 
 hj_reformatDigit_p <- function(P_VALUES, pDigits_from=3, pDigits_to=2)
 {
-  # p í‘œí˜„ ì¡°ì •
-  # input digitì€ 3ìë¦¬
-  # ì›ì¹™
-  # 0.01ë³´ë‹¤ í¬ë©´ 2ìë¦¬ë¡œ
-  # 0.01 ~ 0.001ì€ 3ìë¦¬ë¡œ
-  # 0.001ë³´ë‹¤ ì‘ìœ¼ë©´ <0.001ë¡œ
-  # ë³€í˜•
-  # 0.050ê³¼ ê°™ê±°ë‚˜ í¬ë©´ 2ìë¦¬ë¡œ
-  # 0.045-0.050ëŠ” 3ìë¦¬ë¡œ
-  # 0.045-0.010ì€ 2ìë¦¬ë¡œ
-  # 0.01 ~ 0.001ì€ 3ìë¦¬ë¡œ
-  # 0.001ë³´ë‹¤ ì‘ìœ¼ë©´ <0.001ë¡œ
-
+  # p Ç¥Çö Á¶Á¤
+  # input digitÀº 3ÀÚ¸®
+  # ¿øÄ¢
+  # 0.01º¸´Ù Å©¸é 2ÀÚ¸®·Î
+  # 0.01 ~ 0.001Àº 3ÀÚ¸®·Î
+  # 0.001º¸´Ù ÀÛÀ¸¸é <0.001·Î
+  # º¯Çü
+  # 0.050°ú °°°Å³ª Å©¸é 2ÀÚ¸®·Î
+  # 0.045-0.050´Â 3ÀÚ¸®·Î
+  # 0.045-0.010Àº 2ÀÚ¸®·Î
+  # 0.01 ~ 0.001Àº 3ÀÚ¸®·Î
+  # 0.001º¸´Ù ÀÛÀ¸¸é <0.001·Î
+  
   p_values <- as.character(P_VALUES)
-
+  
   pDigits_adj<-10^(3-pDigits_from)
   p <- lapply(p_values, function(x){
     if(grepl("<",x) | x=="" | x=="NaN" | x=="NA") return (x)
@@ -149,7 +145,7 @@ hj_reformatDigit_p <- function(P_VALUES, pDigits_from=3, pDigits_to=2)
     x<-format(x, nsmall=pDigits_to)
     return(x)
   })
-
+  
   res<-unlist(p)
   return(res)
 }
@@ -169,10 +165,10 @@ hj_cox_multi_covariates <- function(df_data, time, event, covariates, p_threshol
 {
   if (!is.numeric(event)) event<-as.numeric(event)
   hj_cox_formulas <- sapply(covariates, function(x) as.formula(paste('Surv(time, event)~', x)))
-
+  
   if (is.null(WEIGHT)) hj_cox_models <- lapply(hj_cox_formulas, function(x){coxph(x, data = df_data)})
   else hj_cox_models <- lapply(hj_cox_formulas, function(x){coxph(x, data = df_data, weights = df_data$w)})
-
+  
   hj_cox_results <- lapply(hj_cox_models, function(x){
     x <- summary(x)
     p_value<-x$wald["pvalue"]
@@ -183,14 +179,14 @@ hj_cox_multi_covariates <- function(df_data, time, event, covariates, p_threshol
     as.data.frame %>%
     subset(pvalue<p_threshold) %>%
     rownames -> res_covariates
-
+  
   # if(!is.null(MUST_COV)) res_covariates <- as.character(unlist(merge(data.frame(cov=res_covariates), data.frame(cov=MUST_COV), key=cov, all=TRUE)))
   if(!is.null(MUST_COV)) res_covariates <- as.character(unlist(merge(data.frame(cov=res_covariates), data.frame(cov=MUST_COV), key=cov, all=TRUE)))
-
+  
   res_covariates %>% paste0(collapse = "+") -> res
   # paste0(collapse = "+") %>% return
   # paste0(collapse = "+") -> res
-
+  
   print(paste("covariates:",res))
   return (res)
 }
@@ -199,20 +195,20 @@ hj_cox <- function(df_data, t_time, t_event, COV, multiCox=FALSE, dgt=2, p_thres
 {
   df_name <- deparse(substitute(df_data))
   covariates <- COV
-  # plt_a ëŠ” ì œì™¸ ----
+  # plt_a ´Â Á¦¿Ü ----
   if (multiCox==TRUE) covariates <- COV[!(COV %in% c("plt_a"))]
-
+  
   time <- unlist(df_data[t_time])
   event <- unlist(df_data[t_event])
   if (!is.null(WEIGHT)) df_data$w<-unlist(df_data[WEIGHT])
-
+  
   if (!is.numeric(event)) event<-as.numeric(event)
-  if (!multiCox) print("--- Univariable Cox Analysis ---")
+  if (!multiCox) print("--- Univariable Cox Analysis ---") 
   if (multiCox) print("### Multivariable Cox Analysis ###")
   print(paste("data: ", df_name, " P threshold:", p_threshold))
   #if (multiCox) covariates <-paste0(covariates,collapse="+")
   if (multiCox) covariates <-hj_cox_multi_covariates(df_data, time, event, covariates, p_threshold, WEIGHT, MUST_COV=MUST_COV)
-
+  
   # if(!is.null(MUST_COV)) covariates <- as.character(unlist(merge(data.frame(cov=covariates), data.frame(cov=MUST_COV), key=cov, all=TRUE)))
   # print(covariates)
   # print(paste("*ESS:",MUST_COV))
@@ -221,22 +217,22 @@ hj_cox <- function(df_data, t_time, t_event, COV, multiCox=FALSE, dgt=2, p_thres
   hj_cox_formulas <- sapply(covariates, function(x) as.formula(paste('Surv(time, event)~', x)))
   if (is.null(WEIGHT)) hj_cox_models <- lapply(hj_cox_formulas, function(x){coxph(x, data = df_data)})
   else  hj_cox_models <- lapply(hj_cox_formulas, function(x){coxph(x, data = df_data, weights = df_data$w)})
-
+  
   hj_cox_results <- lapply(hj_cox_models, function(x){
     coxsmry <- summary(x)
-
-    # ìë¦¬ìˆ˜ ì•ˆë³´ì •
+    
+    # ÀÚ¸®¼ö ¾Èº¸Á¤
     # HR <-format(round(coxsmry$coef[,"exp(coef)"], digits=dgt), nsmall=dgt)
     # HR.confint.lower <- format(round(coxsmry$conf.int[,"lower .95"],dgt), nsmall=dgt)
     # HR.confint.upper <- format(round(coxsmry$conf.int[,"upper .95"],dgt), nsmall=dgt)
-
-    # ìë¦¬ìˆ˜ ë³´ì •
+    
+    # ÀÚ¸®¼ö º¸Á¤
     {
       HR.confint.lower <- format(round(coxsmry$conf.int[,"lower .95"],dgt), nsmall=dgt)
       HR.confint.upper <- format(round(coxsmry$conf.int[,"upper .95"],dgt), nsmall=dgt)
       digits <- rep(dgt, times=length(HR.confint.lower))
       digits[HR.confint.lower==HR.confint.upper]<-dgt+1
-
+      
       HRs<-coxsmry$coef[,"exp(coef)"]
       CIs_lower<-coxsmry$conf.int[,"lower .95"]
       CIs_upper<-coxsmry$conf.int[,"upper .95"]
@@ -251,24 +247,24 @@ hj_cox <- function(df_data, t_time, t_event, COV, multiCox=FALSE, dgt=2, p_thres
       HR.confint.lower <- coxsmry2$CIs_lower2
       HR.confint.upper <- coxsmry2$CIs_upper2
     }
-
+    
     # print(coxsmry2)
     HR <- paste0(HR, " (", HR.confint.lower, "-", HR.confint.upper, ")")
     # p.value<-round(x$coef[,"Pr(>|z|)"], digits=dgt)
     p_value<-coxsmry$coef[,"Pr(>|z|)"]
-
+    
     sig<-p_value
     sig[p_value>=0.1]<-" "
     sig[p_value<0.1]<-"."
     sig[p_value<0.05]<-"*"
     sig[p_value<0.01]<-"**"
     sig[p_value<0.001]<-"***"
-
+    
     p<-format(round(p_value, digits=pDigits), nsmall=pDigits)
     p[p_value<(0.1^pDigits)]<-paste0("<0.",paste0(rep("0",pDigits-1),collapse=""),"1")
     #p[p.value>=(0.1^dgt)]<-format(p.value, nsmall=dgt)
     varname <- rownames(coxsmry$coefficients)
-
+    
     if (DETAILED) {
       HRmed <- coxsmry$coef[,"exp(coef)"]
       HRlower <- coxsmry$conf.int[,"lower .95"]
@@ -286,13 +282,16 @@ hj_cox <- function(df_data, t_time, t_event, COV, multiCox=FALSE, dgt=2, p_thres
   # rownames(res)<-unlist(lapply(rownames(res), function(x) {tail(unlist(strsplit(x,"\\.")),1)}))
   rownames(res)<-res$varname
   # res$varname <- NULL
-
-  # pë¥¼ ì†Œìˆ˜ì  3ìë¦¬ -> 2ìë¦¬ ê¸°ì¤€ìœ¼ë¡œ ë³€ê²½ ** inputì´ 3ìë¦¬ê°€ ì•„ë‹ ê²½ìš° í•¨ìˆ˜ ë³€ê²½ í•„ìš”
+  
+  # p¸¦ ¼Ò¼öÁ¡ 3ÀÚ¸® -> 2ÀÚ¸® ±âÁØÀ¸·Î º¯°æ ** inputÀÌ 3ÀÚ¸®°¡ ¾Æ´Ò °æ¿ì ÇÔ¼ö º¯°æ ÇÊ¿ä
   res$p2<-res$p
-  res$p<- hj_reformatDigit_p(res$p)
-
+  res$p<- hj_reformatDigit_p(res$p) 
+  
   return(res)
 }
+
+# hj_cox_DBwrite("tbcox1", myfacdataLC,"month_hcc_os1", "hcc", cox_cov, P_THRESHOLD=0.05)
+# format(1.234560, nsmall=2)
 
 hj_cox_DBwrite <- function(DB_TABLE_NAME, DATA, TIME, EVENT, COX_COV, P_THRESHOLD=0.2, WEIGHT=NULL, ROBUST_VAR=NULL, MUST_COV=NULL){
   res_cox_uni <- hj_cox(DATA, TIME, EVENT, COX_COV, WEIGHT=WEIGHT, ROBUST_VAR=ROBUST_VAR)
@@ -309,7 +308,7 @@ hj_PSM_match.data <- function(MATCHIT_OBJ){
   ID_treats <- rownames(PSM_matrix)
   ID_controls <- (PSM_matrix)
   print(length(ID_treats))
-
+  
   PSM_data$PSM_ID <- NULL
   for (i in 1:length(ID_treats))
   {
@@ -320,8 +319,10 @@ hj_PSM_match.data <- function(MATCHIT_OBJ){
   res$PSM_ID <- floor(res$PSM_ID)
   return(res)
 }
+# ?survfit.object
 
-hj_figure_KM <- function(DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTITLE=NULL, BREAK_TIME_BY=24, FONT_SIZE=NULL, PALETTE=NULL, STR_TIME="months", MONTH_TO_YEAR=FALSE, CENSOR=FALSE, RISKTABLE=FALSE, INTEREST_YEARS=NULL, XLIM=NULL, YLIM=NULL, LEGEND="none", LEGEND_LABS=NULL, FUN=NULL) {
+# forest_result <- hj_forest_list(forest_data, forest_vars, "hcc", "hbeag_a", cox_vars)
+hj_figure_CumInc <- function(DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTITLE=NULL, BREAK_TIME_BY=24, FONT_SIZE=NULL, PALETTE=NULL, STR_TIME="months", MONTH_TO_YEAR=FALSE, CENSOR=FALSE, RISKTABLE=FALSE, INTEREST_YEARS=NULL, XLIM=NULL, YLIM=NULL, LEGEND="none", LEGEND_LABS=NULL) {
   df <- DF_DATA
   df_name <- deparse(substitute(DF_DATA))
   time <- df[MONTH_TIME]
@@ -332,21 +333,21 @@ hj_figure_KM <- function(DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTIT
   surv_formula_txt <- paste0("Surv(",MONTH_TIME,",",EVENT,")~",STRATA)
   surv_formula <- as.formula(surv_formula_txt)
   print(surv_formula_txt)
-  fit <- surv_fit(as.formula(surv_formula_txt), data=df) # survfitìœ¼ë¡œ í•˜ë©´ symbol ì—ëŸ¬
-  if(!is.null(WEIGHT)) fit <- surv_fit(as.formula(surv_formula_txt), data=df, weights=eval(parse(text=paste0(df_name,"$",WEIGHT)))) # survfitìœ¼ë¡œ í•˜ë©´ symbol ì—ëŸ¬
-
+  fit <- surv_fit(as.formula(surv_formula_txt), data=df) # survfitÀ¸·Î ÇÏ¸é symbol ¿¡·¯
+  if(!is.null(WEIGHT)) fit <- surv_fit(as.formula(surv_formula_txt), data=df, weights=eval(parse(text=paste0(df_name,"$",WEIGHT)))) # survfitÀ¸·Î ÇÏ¸é symbol ¿¡·¯
+  
   LINETYPE <- c(1,5)
   if(is.null(PALETTE)) PALETTE=c("red", "black")
-
-
+  
+  
   res<-NULL
-
-  # DB_risktable: number at risk
+  
+  # DB_risktable: number at risk 
   res$risktable <- ggrisktable(fit, data=df, break.time.by = BREAK_TIME_BY)
   res$DB_risktable <- res$risktable$data %>% select(strata, time, n.risk)
   res$DB_risktable <- as.data.frame(cast(res$DB_risktable, strata~time, value="n.risk"))
-
-  # DB_risktable2: ê´€ì‹¬ë…„ë„ number at riskì™€ cumulative incidence (%)
+  
+  # DB_risktable2: °ü½É³âµµ number at risk¿Í cumulative incidence (%)
   if(is.null(INTEREST_YEARS)){
     times <- colnames(res$DB_risktable)
     times <- times[-1]
@@ -357,23 +358,21 @@ hj_figure_KM <- function(DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTIT
   df_smry1 <- dcast(df_smry, strata~time, value.var="nrisk")
   df_smry2 <- dcast(df_smry, strata~time, value.var="cuminc_pct")
   df_smry3 <- rbind(df_smry1,df_smry2)
-
+  
   print(df_smry3)
   res$DB_risktable2 <- df_smry3
-
+  
   if(is.null(FONT_SIZE)){
     res$plot<-ggsurvplot(fit, size=1, break.time.by = BREAK_TIME_BY, fun="event", palette = PALETTE, linetype = LINETYPE, censor.size=1, censor.shape="|",
                          title="Cumulative incidence of ...", subtitle=SUBTITLE, xlab=paste("Time",STR_TIME))
   }
   else {
-    res$plot<-ggsurvplot(fit, size=FONT_SIZE/15, break.time.by = BREAK_TIME_BY, palette = PALETTE, linetype = LINETYPE, censor=CENSOR,
-                         fun=FUN,
+    res$plot<-ggsurvplot(fit, size=FONT_SIZE/15, break.time.by = BREAK_TIME_BY, fun="event", palette = PALETTE, linetype = LINETYPE, censor=CENSOR, 
                          # xlab="", ylab="",
-                         xlab=paste("Time",STR_TIME),
-                         # ylab="Cumulative incidence (%)",
+                         xlab=paste("Time",STR_TIME), ylab="Cumulative incidence (%)",
                          legend.labs=LEGEND_LABS,    #c("HBeAg-positive","HBeAg-negative"),
                          surv.scale="percent",
-
+                         
                          font.legend = c(FONT_SIZE, "plain", "black"),
                          legend=LEGEND,
                          ggtheme=theme_survminer(
@@ -394,9 +393,9 @@ hj_figure_KM <- function(DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTIT
 }
 
 
-hj_figure_KM_DBwrite <- function(DB_TABLE_NAME, DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTITLE=NULL, BREAK_TIME_BY=24, FONT_SIZE=NULL, PALETTE=NULL, STR_TIME="months", MONTH_TO_YEAR=FALSE, CENSOR=FALSE, RISKTABLE=FALSE, XLIM=NULL, YLIM=NULL, LEGEND="none", LEGEND_LABS=NULL, FUN=NULL) {
-  res <- hj_figure_KM(DF_DATA, MONTH_TIME, EVENT, STRATA, SUBTITLE=SUBTITLE, WEIGHT=WEIGHT, BREAK_TIME_BY=BREAK_TIME_BY, FONT_SIZE=FONT_SIZE, PALETTE=PALETTE, STR_TIME=STR_TIME, MONTH_TO_YEAR=MONTH_TO_YEAR, CENSOR=CENSOR, RISKTABLE=RISKTABLE, XLIM=XLIM, YLIM=YLIM, LEGEND=LEGEND, LEGEND_LABS=LEGEND_LABS, FUN=FUN)
-  # hj_DB_write(DB_TABLE_NAME, res$DB_risktable, COPY_ROWNAMES = FALSE) ì´ê±° ì•„ë‹˜
+hj_figure_CumInc_DBwrite <- function(DB_TABLE_NAME, DF_DATA, MONTH_TIME, EVENT, STRATA, WEIGHT=NULL, SUBTITLE=NULL, BREAK_TIME_BY=24, FONT_SIZE=NULL, PALETTE=NULL, STR_TIME="months", MONTH_TO_YEAR=FALSE, CENSOR=FALSE, RISKTABLE=FALSE, XLIM=NULL, YLIM=NULL, LEGEND="none", LEGEND_LABS=NULL) {
+  res <- hj_figure_CumInc(DF_DATA, MONTH_TIME, EVENT, STRATA, SUBTITLE=SUBTITLE, WEIGHT=WEIGHT, BREAK_TIME_BY=BREAK_TIME_BY, FONT_SIZE=FONT_SIZE, PALETTE=PALETTE, STR_TIME=STR_TIME, MONTH_TO_YEAR=MONTH_TO_YEAR, CENSOR=CENSOR, RISKTABLE=RISKTABLE, XLIM=XLIM, YLIM=YLIM, LEGEND=LEGEND, LEGEND_LABS=LEGEND_LABS) 
+  # hj_DB_write(DB_TABLE_NAME, res$DB_risktable, COPY_ROWNAMES = FALSE) ÀÌ°Å ¾Æ´Ô
   hj_DB_write(DB_TABLE_NAME, res$DB_risktable2, COPY_ROWNAMES = FALSE)
   if(is.null(FONT_SIZE)){
     pic_size_x=15
@@ -409,7 +408,7 @@ hj_figure_KM_DBwrite <- function(DB_TABLE_NAME, DF_DATA, MONTH_TIME, EVENT, STRA
   # pic_size_x=5.8
   # pic_size_y=8.5
   # pic_size_y=5.5
-
+  
   ggsave(plot=print(res$plot), file=paste0(DB_TABLE_NAME,".tiff"), width=pic_size_x, height=pic_size_y, unit="cm", dpi=300)
   return(res)
 }
@@ -424,7 +423,7 @@ hj_logrank <- function(DF_DATA, TIME, EVENT, STRATA, STRATIFIED_VAR=NULL, WEIGHT
   print(surv_formula_txt)
   tmp<-summary(coxph(as.formula(surv_formula_txt), data = DF_DATA))
   res$logrank <- tmp$logtest["pvalue"]
-
+  
   if(!is.null(STRATIFIED_VAR)) {
     surv_formula_txt <- paste0(surv_formula_txt, "+strata(", STRATIFIED_VAR,")")
     print(surv_formula_txt)
@@ -457,7 +456,7 @@ hj_forest_element <- function(DF, SUBGROUP_VAR, SUBGROUP_NAME, EVENT_VAR, INTERE
   df <- DF
   df$subgroup_var <- unlist(df[SUBGROUP_VAR])
   if(!is.factor(df$subgroup_var)) { df$subgroup_var <- as.factor(df$subgroup_var) }
-
+  
   results <- sapply(levels(df$subgroup_var), function(x) {
     print(paste0(SUBGROUP_VAR,"=",x))
     res <- NULL
@@ -467,14 +466,14 @@ hj_forest_element <- function(DF, SUBGROUP_VAR, SUBGROUP_NAME, EVENT_VAR, INTERE
     interest1e <- nrow(df2 %>% subset(.[INTEREST_VAR]==1 & .[EVENT_VAR]==1) )
     interest1n <- nrow(df2 %>% subset(.[INTEREST_VAR]==1) )
     cox_cov <- COX_VARS
-
+    
     # res_cox_multi <- hj_cox(df2, "month_hcc_os1", "hcc", cox_cov, TRUE, dgt=2, p_threshold=1, DETAILED=TRUE) %>% subset (varname==paste0(INTEREST_VAR,"1"))
     if (!is.null(MUST_COV)) res_cox_multi <- hj_cox(df2, "month_hcc_os1", "hcc", cox_cov, multiCox=multiCox, dgt=2, p_threshold=P_THRESHOLD, DETAILED=TRUE, MUST_COV=MUST_COV) %>% subset (varname==paste0(INTEREST_VAR,"1"))
     else res_cox_multi <- hj_cox(df2, "month_hcc_os1", "hcc", cox_cov, multiCox=multiCox, dgt=2, p_threshold=P_THRESHOLD, DETAILED=TRUE) %>% subset (varname==paste0(INTEREST_VAR,"1"))
-
+    
     # print("res_cox_multi")
     # print(res_cox_multi)
-
+    
     res$is.title <- FALSE
     res$name <- x
     res$interest0num <- paste0(interest0e,"/",interest0n," (",round(interest0e/interest0n*100, digit=2),"%)")
